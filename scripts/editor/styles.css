@@ -210,6 +210,11 @@ h3 { font-size: 14px; line-height: 1.3; }
 .checkbox-grid small { color: var(--muted); }
 .parameters { display: grid; gap: 8px; }
 .parameter-row { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(160px, 1.3fr) 30px; gap: 8px; align-items: end; }
+.navigation-branches { display: grid; gap: 6px; padding-top: 4px; }
+.navigation-branch { padding: 12px 0; border-top: 1px solid var(--border); }
+.navigation-branch:last-child { border-bottom: 1px solid var(--border); }
+.navigation-branch > .repeated-heading { margin-bottom: 10px; }
+.navigation-branch > .form-grid { max-width: none; gap: 10px 12px; }
 .status-view { display: grid; gap: 18px; max-width: 720px; }
 .status-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--border); }
 .status-fact { padding: 12px 0; border-bottom: 1px solid var(--border); }

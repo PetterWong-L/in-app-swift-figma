@@ -46,19 +46,23 @@ test("a popup-only module clears and disables its entry page", {
   assert.equal(await page.locator("#popup-field-title").isChecked(), true);
   assert.equal(await page.locator("#popup-field-subtitle").isChecked(), false);
   assert.equal(await page.locator("#popup-field-content").isChecked(), true);
-  assert.deepEqual(await page.locator("[data-popup-button-id]").allInputValues(), ["primary"]);
+  assert.deepEqual(await inputValues(page.locator("[data-popup-button-id]")), ["primary"]);
 
   await page.locator("#add-popup-button").click();
-  assert.deepEqual(await page.locator("[data-popup-button-id]").allInputValues(), ["primary", "button"]);
+  assert.deepEqual(await inputValues(page.locator("[data-popup-button-id]")), ["primary", "button"]);
   await page.locator('[data-move-popup-button="1"][data-delta="-1"]').click();
-  assert.deepEqual(await page.locator("[data-popup-button-id]").allInputValues(), ["button", "primary"]);
+  assert.deepEqual(await inputValues(page.locator("[data-popup-button-id]")), ["button", "primary"]);
   await page.locator('[data-delete-popup-button="0"]').click();
-  assert.deepEqual(await page.locator("[data-popup-button-id]").allInputValues(), ["primary"]);
+  assert.deepEqual(await inputValues(page.locator("[data-popup-button-id]")), ["primary"]);
 
   await page.locator("#validate-button").click();
   assert.equal(await page.locator('#module-entry[aria-invalid="true"]').count(), 0);
   assert.equal(await page.locator('[data-issue-path="modules.common.entry_page"] .inline-field-errors').count(), 0);
 });
+
+async function inputValues(locator) {
+  return locator.evaluateAll((inputs) => inputs.map((input) => input.value));
+}
 
 function editorConfig() {
   return {

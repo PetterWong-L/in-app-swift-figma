@@ -75,7 +75,8 @@ class ExecutionEfficiencyContractTest < Minitest::Test
     assert_includes skill, "task_config.rb changes"
     assert_includes skill, "implementation_status"
     %w[added modified removed unchanged].each { |change| assert_includes workflow, "`#{change}`" }
-    assert_includes guide, "schema v6"
+    assert_includes guide, "schema v7"
+    assert_includes guide, "## Schema v6 Migration"
     assert_includes guide, "## Schema v5 Migration"
     assert_includes guide, "accepted_baseline"
     assert_includes guide, "removed_tasks"
@@ -83,7 +84,7 @@ class ExecutionEfficiencyContractTest < Minitest::Test
     assert_includes guide, "confirm_amendments"
     assert_includes efficiency, "unfinished item tasks"
     assert_includes efficiency, "unchanged `done` tasks"
-    assert_equal 6, YAML.safe_load(template).fetch("schema_version")
+    assert_equal 7, YAML.safe_load(template).fetch("schema_version")
     assert_includes template, "implementation_status: todo"
     assert_includes template, "accepted_baseline:"
     assert_includes template, "removed_tasks: []"

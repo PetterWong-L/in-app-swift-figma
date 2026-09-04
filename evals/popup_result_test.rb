@@ -10,7 +10,7 @@ class PopupResultTest < Minitest::Test
 
     loaded = TaskConfig.send(:from_data, config, path: "InAppFigma.yaml")
 
-    assert_equal 6, loaded.data.fetch("schema_version")
+    assert_equal 7, loaded.data.fetch("schema_version")
     assert_equal(
       {
         "implementation_status" => "todo",
@@ -151,7 +151,7 @@ class PopupResultTest < Minitest::Test
     loaded.validate!
     migrated = loaded.data
 
-    assert_equal 6, migrated.fetch("schema_version")
+    assert_equal 7, migrated.fetch("schema_version")
     assert_equal({ "title" => true, "subtitle" => false, "content" => true },
                  migrated.dig("modules", 0, "pages", 2, "popup", "fields"))
     assert_equal ["confirmed"], migrated.dig("modules", 0, "pages", 2, "popup", "buttons").map { |item| item.fetch("id") }
@@ -174,7 +174,7 @@ class PopupResultTest < Minitest::Test
     ])]
     migrated = TaskConfig.send(:from_data, config, path: "InAppFigma.yaml").data
 
-    assert_equal 6, migrated.fetch("schema_version")
+    assert_equal 7, migrated.fetch("schema_version")
     assert migrated.dig("modules", 0, "pages", 2, "popup")
   end
 

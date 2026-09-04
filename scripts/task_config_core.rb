@@ -31,7 +31,7 @@ class TaskConfig
   CONFIG_FILENAME = "InAppFigma.yaml"
   LAUNCHER_FILENAME = "OpenInAppFigma.command"
   PROJECT_SCRIPT_PATH = ".codex/skills/in-app-swift-figma/scripts/task_config.rb"
-  SCHEMA_VERSION = 6
+  SCHEMA_VERSION = 7
   STATUSES = %w[todo in_progress failed blocked done].freeze
   IMPLEMENTATION_STATUSES = %w[todo in_progress done].freeze
   TASK_KINDS = %w[state behavior popup].freeze
@@ -50,6 +50,7 @@ class TaskConfig
   BEHAVIOR_ACTION_TYPES = %w[
     navigate present_popup dismiss_popup
     start_countdown stop_countdown
+    start_countup stop_countup
     play_video pause_video stop_video
     emit_event custom
   ].freeze
@@ -766,8 +767,8 @@ class TaskConfig
     validate_popup(page, page_path, errors)
 
     state_ids = validate_states(page["states"], page_path, errors)
-    errors << "#{page_path}.state_transitions is not supported in schema v6; use behaviors" if page.key?("state_transitions")
-    errors << "#{page_path}.navigation is not supported in schema v6; use behaviors with actions.type navigate" if page.key?("navigation")
+    errors << "#{page_path}.state_transitions is not supported in schema v7; use behaviors" if page.key?("state_transitions")
+    errors << "#{page_path}.navigation is not supported in schema v7; use behaviors with actions.type navigate" if page.key?("navigation")
     validate_behaviors(
       page.fetch("behaviors", []),
       page_path,
@@ -1021,7 +1022,7 @@ class TaskConfig
       errors << "#{behavior_path}.trigger.name is required for custom_event"
     end
 
-    errors << "#{behavior_path}.action is not supported in schema v6; use state_change or actions" if behavior.key?("action")
+    errors << "#{behavior_path}.action is not supported in schema v7; use state_change or actions" if behavior.key?("action")
 
     state_change = behavior["state_change"]
     actions = behavior["actions"]
@@ -1102,13 +1103,7 @@ class TaskConfig
       errors << "#{action_path}.dismiss_popup must not define url" unless blank?(action["url"])
       errors << "#{action_path}.dismiss_popup must not define destination_instance" unless blank?(action["destination_instance"])
       errors << "#{action_path}.dismiss_popup must not define parameters" unless blank?(action["parameters"])
-    when "start_countdown"
-      parameters = action["parameters"]
-      unless parameters.is_a?(Hash) && !blank?(parameters["duration_seconds"])
-        errors << "#{action_path}.parameters.duration_seconds is required"
-      end
-      validate_action_target(action, action_path, errors)
-    when "stop_countdown", "play_video", "pause_video", "stop_video"
+    when "start_countdown", "stop_countdown", "start_countup", "stop_countup", "play_video", "pause_video", "stop_video"
       validate_action_target(action, action_path, errors)
     when "emit_event", "custom"
       errors << "#{action_path}.name is required for #{action_type}" unless non_empty_string?(action["name"])
@@ -1208,24 +1203,57 @@ class TaskConfig
   end
 
   def validate_navigation_action(action, action_path, source_id, page_roles_by_id, errors)
-    style = action["style"]
-    errors << "#{action_path}.style must be one of #{TRANSITION_STYLES.join(', ')}" unless TRANSITION_STYLES.include?(style)
+    if action.key?("branches")
+      %w[style destination destination_instance url parameters].each do |field|
+        errors << "#{action_path}.navigate with branches must not define #{field}" if action.key?(field)
+      end
+      branches = action["branches"]
+      unless branches.is_a?(Array) && branches.length >= 2
+        errors << "#{action_path}.branches must contain at least two navigation branches"
+        return
+      end
+      conditions = []
+      branches.each_with_index do |branch, index|
+        branch_path = "#{action_path}.branches[#{index}]"
+        unless branch.is_a?(Hash)
+          errors << "#{branch_path} must be a mapping"
+          next
+        end
+        condition = branch["condition"]
+        unless non_empty_string?(condition)
+          errors << "#{branch_path}.condition must be a non-empty string"
+        else
+          conditions << condition
+        end
+        validate_behavior_parameters(branch, branch_path, errors)
+        validate_navigation_route(branch, branch_path, source_id, page_roles_by_id, errors)
+      end
+      errors << "#{action_path}.branches conditions must be unique" unless conditions.uniq.length == conditions.length
+      return
+    end
+
+    validate_navigation_route(action, action_path, source_id, page_roles_by_id, errors)
+  end
+
+  def validate_navigation_route(route, route_path, source_id, page_roles_by_id, errors)
+    style = route["style"]
+    errors << "#{route_path}.style must be one of #{TRANSITION_STYLES.join(', ')}" unless TRANSITION_STYLES.include?(style)
 
     if DESTINATION_STYLES.include?(style)
-      errors << "#{action_path}.#{style} requires destination" if blank?(action["destination"])
-      errors << "#{action_path}.#{style} must not define url" unless blank?(action["url"])
-      validate_destination_metadata(action, action_path, source_id, errors)
-      validate_destination_role(action, action_path, "screen", page_roles_by_id, errors)
+      errors << "#{route_path}.#{style} requires destination" if blank?(route["destination"])
+      errors << "#{route_path}.#{style} must not define url" unless blank?(route["url"])
+      validate_destination_metadata(route, route_path, source_id, errors)
+      validate_destination_role(route, route_path, "screen", page_roles_by_id, errors)
     elsif TERMINAL_STYLES.include?(style)
-      errors << "#{action_path}.#{style} must not define url" unless blank?(action["url"])
-      errors << "#{action_path}.#{style} must not define destination_instance" unless blank?(action["destination_instance"])
-      errors << "#{action_path}.#{style} must not define parameters" unless blank?(action["parameters"])
-      validate_destination_role(action, action_path, "screen", page_roles_by_id, errors)
+      errors << "#{route_path}.#{style} must not define url" unless blank?(route["url"])
+      errors << "#{route_path}.#{style} must not define destination_instance" unless blank?(route["destination_instance"])
+      errors << "#{route_path}.#{style} must not define parameters" unless blank?(route["parameters"])
+      validate_destination_role(route, route_path, "screen", page_roles_by_id, errors)
     elsif style == "external"
-      errors << "#{action_path}.external requires url" unless http_url?(action["url"])
-      errors << "#{action_path}.external must not define destination" unless blank?(action["destination"])
-      errors << "#{action_path}.external must not define destination_instance" unless blank?(action["destination_instance"])
-      errors << "#{action_path}.external must not define parameters" unless blank?(action["parameters"])
+      errors << "#{route_path}.external requires url" unless http_url?(route["url"])
+      errors << "#{route_path}.external must not define destination" unless blank?(route["destination"])
+      errors << "#{route_path}.external must not define destination_instance" unless blank?(route["destination_instance"])
+      errors << "#{route_path}.external must not define parameters" unless blank?(route["parameters"])
     end
   end
 
@@ -1542,6 +1570,7 @@ class TaskConfig
     migrate_v3_to_v4! if @data.is_a?(Hash) && @data["schema_version"] == 3
     migrate_v4_to_v5! if @data.is_a?(Hash) && @data["schema_version"] == 4
     migrate_v5_to_v6! if @data.is_a?(Hash) && @data["schema_version"] == 5
+    migrate_v6_to_v7! if @data.is_a?(Hash) && @data["schema_version"] == 6
   end
 
   def migrate_v1_to_v2!
@@ -1612,6 +1641,10 @@ class TaskConfig
       baseline_page = migrated_baselines.fetch(canonical_id)
       page["accepted_baseline"] = accepted_contract(baseline_page)
     end
+  end
+
+  def migrate_v6_to_v7!
+    @data["schema_version"] = 7
   end
 
   def migrate_v5_document_to_v6!(document, record_compatibility: true)
@@ -1810,7 +1843,7 @@ class TaskConfig
     if record_compatibility
       compatibility.empty? ? document.delete("migration_compatibility") : document["migration_compatibility"] = compatibility
     end
-    document["schema_version"] = SCHEMA_VERSION
+    document["schema_version"] = 6
   end
 
   def accepted_baseline_document(document)

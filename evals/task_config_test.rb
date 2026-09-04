@@ -76,20 +76,20 @@ class TaskConfigTest < Minitest::Test
   def test_task_configuration_documents_action_specific_parameter_contracts
     guidance = File.read(File.join(SKILL_ROOT, "references", "task-configuration.md"))
 
-    assert_includes guidance, "`navigate` parameters carry destination input"
+    assert_includes guidance, "`navigate` route parameters carry destination input"
     assert_includes guidance, "`present_popup.content`"
     assert_includes guidance, "`present_popup.buttons`"
     assert_includes guidance, "popup button callback"
-    assert_includes guidance, "`start_countdown.parameters.duration_seconds` configures the countdown duration"
+    assert_includes guidance, "Countdown and count-up actions require only a semantic `target`"
     refute_includes guidance, "valid only for destination-creating `navigate` actions"
   end
 
-  def test_schema_v6_popup_guidance_and_template_use_caller_owned_callbacks
+  def test_current_popup_guidance_and_template_use_caller_owned_callbacks
     guidance = File.read(File.join(SKILL_ROOT, "references", "task-configuration.md"))
     template = File.read(File.join(SKILL_ROOT, "assets", "InAppFigma.yaml"))
     current_guidance, migration_guidance = guidance.split("## Schema v5 Migration", 2)
 
-    assert_equal 6, YAML.safe_load(template).fetch("schema_version")
+    assert_equal 7, YAML.safe_load(template).fetch("schema_version")
     assert_includes template, "popup:"
     assert_includes template, "fields:"
     assert_includes template, "buttons:"
@@ -430,7 +430,7 @@ class TaskConfigTest < Minitest::Test
 
       refute status.success?
       assert_includes err, "trigger.event must be one of"
-      assert_includes err, "actions[0].parameters.duration_seconds is required"
+      assert_includes err, "actions[0].target is required for start_countdown"
       assert_includes err, "run_policy must be one of once_per_instance, every_time"
       assert_includes err, "trigger.source must reference a start_countdown behavior in this page"
       assert_includes err, "state_change must reference a state in this page"
@@ -476,8 +476,25 @@ class TaskConfigTest < Minitest::Test
     assert_equal %w[scroll scroll_lock sticky fixed keyboard_avoidance pull_to_refresh pagination interaction], metadata.fetch("behavior_types")
     assert_equal %w[vertical horizontal both], metadata.fetch("behavior_axes")
     assert_equal %w[tap page_appear page_disappear state_enter state_exit timer_finished video_finished custom_event], metadata.fetch("behavior_trigger_events")
-    assert_equal %w[navigate present_popup dismiss_popup start_countdown stop_countdown play_video pause_video stop_video emit_event custom], metadata.fetch("behavior_action_types")
+    assert_equal %w[navigate present_popup dismiss_popup start_countdown stop_countdown start_countup stop_countup play_video pause_video stop_video emit_event custom], metadata.fetch("behavior_action_types")
     assert_equal %w[once_per_instance every_time], metadata.fetch("behavior_run_policies")
+  end
+
+  def test_v6_migrates_to_v7_without_rewriting_existing_actions
+    require CORE
+    config = valid_v4_config
+    config["schema_version"] = 6
+    action = {
+      "type" => "start_countdown",
+      "target" => "countdown_label",
+      "parameters" => { "duration_seconds" => "30" }
+    }
+    page(config, "page-a").fetch("behaviors").first["actions"] = [action]
+
+    loaded = load_task_config(config)
+
+    assert_equal 7, loaded.data.fetch("schema_version")
+    assert_equal action, page(loaded.data, "page-a").fetch("behaviors").first.fetch("actions").first
   end
 
   def test_v3_done_page_migrates_tasks_and_acceptance_baseline
@@ -489,7 +506,7 @@ class TaskConfigTest < Minitest::Test
     loaded = load_task_config(config)
     loaded_page = page(loaded.data, "page-a")
 
-    assert_equal 6, loaded.data["schema_version"]
+    assert_equal 7, loaded.data["schema_version"]
     assert_equal ["done"], loaded_page.fetch("states").map { |item| item["implementation_status"] }.uniq
     assert_equal ["done"], loaded_page.fetch("behaviors").map { |item| item["implementation_status"] }.uniq
     assert_equal(

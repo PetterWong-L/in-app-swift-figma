@@ -11,6 +11,7 @@ import {
   createAction,
   createBehavior,
   createDataDependency,
+  createNavigationBranch,
   entryPageCandidates,
   createModule,
   createMockDataSource,
@@ -37,10 +38,12 @@ import {
   remapCollectionIssuePath,
   moveAction,
   mutatePageTaskContracts,
+  navigationRoutes,
   removeActionAt,
   removeTaskAt,
   removeMockDataSourceAt,
   navigationFields,
+  setConditionalNavigation,
   retargetBehaviorReferences,
   retargetMockDataSourceReferences,
   retargetPageReferences,
@@ -52,7 +55,8 @@ import {
   toggleEditorCard,
   toggleOutlineModule,
   triggerEventsForPage,
-  updateTaskContract
+  updateTaskContract,
+  walkActions
 } from "/model.mjs";
 import { createI18n, localizeIssue, resolveLocale } from "/i18n.mjs";
 import { amendmentTaskLabels, clearPendingAmendment, createAmendmentSaveCoordinator, renderTaskChangeBadge, renderTaskStatusSelect, renderTaskUi, restoreTask, runSaveLifecycle, settleConfirmedAmendment, setRemovedTaskStatus, taskPendingGates } from "/task_ui.mjs";
@@ -829,19 +833,21 @@ function renderInteractionBehaviorFields(behavior, index, page, behaviorPath) {
 function renderBehaviorAction(action, behaviorIndex, actionIndex, page, behaviorPath, actionTypes) {
   const actionPath = `${behaviorPath}.actions[${actionIndex}]`;
   const actionId = `behavior-${behaviorIndex}-actions-${actionIndex}`;
-  const visibleNavigationFields = action.type === "navigate" ? navigationFields(action.style || "push") : [];
+  const conditionalNavigation = action.type === "navigate" && Array.isArray(action.branches);
+  const visibleNavigationFields = action.type === "navigate" && !conditionalNavigation ? navigationFields(action.style || "push") : [];
   const screenDestinations = indexDestinations(state.draft, { pageRole: "screen" });
   const popupDestinations = indexDestinations(state.draft, { pageRole: "popup" });
   const destinations = action.type === "present_popup" ? popupDestinations : screenDestinations;
   const terminal = ["back", "dismiss"].includes(action.style);
-  const canHaveParameters = action.type === "start_countdown" || (action.type === "navigate" && visibleNavigationFields.includes("parameters"));
+  const canHaveParameters = action.type === "navigate" && visibleNavigationFields.includes("parameters");
   return `<section class="behavior-action-row" data-issue-path="${h(actionPath)}">
     <div class="repeated-heading"><h3>${h(t("field.action"))} ${actionIndex + 1}</h3><span class="row-actions">${actionOrderButtons(behaviorIndex, actionIndex, (selectedPage()?.behaviors[behaviorIndex]?.actions || []).length)}<button class="mini-button danger" type="button" data-delete-behavior-action="${behaviorIndex}:${actionIndex}" title="${h(t("action.delete_behavior_action"))}" aria-label="${h(t("action.delete_behavior_action"))}">&times;</button></span></div>
     <div class="form-grid">
       <label><span>${h(t("field.action"))}</span><select id="${h(`${actionId}-type`)}" data-issue-path="${h(`${actionPath}.type`)}">${actionTypes.map((type) => `<option value="${h(type)}" ${type === action.type ? "selected" : ""}>${h(t(`behavior.action.${type}`))}</option>`).join("")}</select></label>
       ${["emit_event", "custom"].includes(action.type) ? field(t("field.semantic_name"), `${actionId}-name`, action.name || "", `${actionPath}.name`) : ""}
-      ${["start_countdown", "stop_countdown", "play_video", "pause_video", "stop_video"].includes(action.type) ? field(t("field.action_target"), `${actionId}-target`, action.target || "", `${actionPath}.target`) : ""}
-      ${action.type === "navigate" ? `<label><span>${h(t("field.style"))}</span><select id="${h(`${actionId}-style`)}" data-issue-path="${h(`${actionPath}.style`)}">${state.snapshot.schema.transition_styles.map((style) => `<option value="${h(style)}" ${style === action.style ? "selected" : ""}>${h(style)}</option>`).join("")}</select></label>` : ""}
+      ${["start_countdown", "stop_countdown", "start_countup", "stop_countup", "play_video", "pause_video", "stop_video"].includes(action.type) ? field(t("field.action_target"), `${actionId}-target`, action.target || "", `${actionPath}.target`) : ""}
+      ${action.type === "navigate" ? renderConditionalNavigation(action, behaviorIndex, [actionIndex], actionPath) : ""}
+      ${action.type === "navigate" && !conditionalNavigation ? `<label><span>${h(t("field.style"))}</span><select id="${h(`${actionId}-style`)}" data-issue-path="${h(`${actionPath}.style`)}">${state.snapshot.schema.transition_styles.map((style) => `<option value="${h(style)}" ${style === action.style ? "selected" : ""}>${h(style)}</option>`).join("")}</select></label>` : ""}
       ${visibleNavigationFields.includes("destination") || action.type === "present_popup" ? `<label><span>${h(t(terminal ? "field.stack_destination" : "field.destination"))}</span><select id="${h(`${actionId}-destination`)}" data-issue-path="${h(`${actionPath}.destination`)}"><option value="">${h(t(terminal ? "field.stack_destination_unspecified" : "field.select_destination"))}</option>${destinations.map((item) => `<option value="${h(item.id)}" ${item.id === action.destination ? "selected" : ""}>${h(item.title)}</option>`).join("")}</select></label>` : ""}
       ${terminal ? `<p class="field-hint full">${h(t("route.terminal_destination_hint"))}</p>` : ""}
       ${action.type === "present_popup" ? `<p class="field-hint full">${h(t("behavior.popup_parameters_hint"))}</p>` : ""}
@@ -900,17 +906,19 @@ function renderPopupPresentation(action, behaviorIndex, address, page, actionPat
 function renderNestedAction(action, behaviorIndex, address, page, actionPath, actionTypes, index, length) {
   const actionId = `nested-action-${behaviorIndex}-${address.join("-")}`;
   const addressToken = address.join(".");
-  const visibleNavigationFields = action.type === "navigate" ? navigationFields(action.style || "push") : [];
+  const conditionalNavigation = action.type === "navigate" && Array.isArray(action.branches);
+  const visibleNavigationFields = action.type === "navigate" && !conditionalNavigation ? navigationFields(action.style || "push") : [];
   const destinations = indexDestinations(state.draft, { pageRole: action.type === "present_popup" ? "popup" : "screen" });
   const terminal = ["back", "dismiss"].includes(action.style);
-  const canHaveParameters = action.type === "start_countdown" || (action.type === "navigate" && visibleNavigationFields.includes("parameters"));
+  const canHaveParameters = action.type === "navigate" && visibleNavigationFields.includes("parameters");
   return `<section class="behavior-action-row nested-action" data-nested-action="${h(`${behaviorIndex}|${addressToken}`)}" data-issue-path="${h(actionPath)}">
     <div class="repeated-heading"><h3>${h(t("field.action"))} ${index + 1}</h3><span class="row-actions">${nestedActionOrderButtons(behaviorIndex, address, index, length)}<button class="mini-button danger" type="button" data-delete-nested-action="${h(`${behaviorIndex}|${addressToken}`)}" title="${h(t("action.delete_behavior_action"))}" aria-label="${h(t("action.delete_behavior_action"))}">&times;</button></span></div>
     <div class="form-grid">
       <label><span>${h(t("field.action"))}</span><select id="${h(`${actionId}-type`)}">${actionTypes.map((type) => `<option value="${h(type)}" ${type === action.type ? "selected" : ""}>${h(t(`behavior.action.${type}`))}</option>`).join("")}</select></label>
       ${["emit_event", "custom"].includes(action.type) ? field(t("field.semantic_name"), `${actionId}-name`, action.name || "", `${actionPath}.name`) : ""}
-      ${["start_countdown", "stop_countdown", "play_video", "pause_video", "stop_video"].includes(action.type) ? field(t("field.action_target"), `${actionId}-target`, action.target || "", `${actionPath}.target`) : ""}
-      ${action.type === "navigate" ? `<label><span>${h(t("field.style"))}</span><select id="${h(`${actionId}-style`)}">${state.snapshot.schema.transition_styles.map((style) => `<option value="${h(style)}" ${style === action.style ? "selected" : ""}>${h(style)}</option>`).join("")}</select></label>` : ""}
+      ${["start_countdown", "stop_countdown", "start_countup", "stop_countup", "play_video", "pause_video", "stop_video"].includes(action.type) ? field(t("field.action_target"), `${actionId}-target`, action.target || "", `${actionPath}.target`) : ""}
+      ${action.type === "navigate" ? renderConditionalNavigation(action, behaviorIndex, address, actionPath) : ""}
+      ${action.type === "navigate" && !conditionalNavigation ? `<label><span>${h(t("field.style"))}</span><select id="${h(`${actionId}-style`)}">${state.snapshot.schema.transition_styles.map((style) => `<option value="${h(style)}" ${style === action.style ? "selected" : ""}>${h(style)}</option>`).join("")}</select></label>` : ""}
       ${visibleNavigationFields.includes("destination") || action.type === "present_popup" ? `<label><span>${h(t(terminal ? "field.stack_destination" : "field.destination"))}</span><select id="${h(`${actionId}-destination`)}"><option value="">${h(t(terminal ? "field.stack_destination_unspecified" : "field.select_destination"))}</option>${destinations.map((item) => `<option value="${h(item.id)}" ${item.id === action.destination ? "selected" : ""}>${h(item.title)}</option>`).join("")}</select></label>` : ""}
       ${terminal ? `<p class="field-hint full">${h(t("route.terminal_destination_hint"))}</p>` : ""}
       ${visibleNavigationFields.includes("destination_instance") ? `<label class="toggle-row"><input id="${h(`${actionId}-new`)}" data-nested-action-new="${h(`${behaviorIndex}|${addressToken}`)}" type="checkbox" ${action.destination_instance === "new" ? "checked" : ""}><span>${h(t("field.new_instance"))}</span></label>` : ""}
@@ -919,6 +927,48 @@ function renderNestedAction(action, behaviorIndex, address, page, actionPath, ac
       ${action.type === "present_popup" ? renderPopupPresentation(action, behaviorIndex, address, page, actionPath, actionTypes) : ""}
     </div>
   </section>`;
+}
+
+function renderConditionalNavigation(action, behaviorIndex, address, actionPath) {
+  const token = `${behaviorIndex}|${address.join(".")}`;
+  const conditional = Array.isArray(action.branches);
+  return `<label class="toggle-row full"><input type="checkbox" data-conditional-navigation="${h(token)}" ${conditional ? "checked" : ""}><span>${h(t("field.conditional_navigation"))}</span></label>
+    ${conditional ? `<div class="full navigation-branches" data-issue-path="${h(`${actionPath}.branches`)}">
+      <div class="section-heading"><h3>${h(t("section.navigation_branches"))}</h3><button class="mini-button" type="button" data-add-navigation-branch="${h(token)}" title="${h(t("action.add_navigation_branch"))}" aria-label="${h(t("action.add_navigation_branch"))}">+</button></div>
+      <p class="field-hint">${h(t("behavior.navigation_branches_hint"))}</p>
+      ${(action.branches || []).map((branch, branchIndex) => renderNavigationBranch(branch, behaviorIndex, address, branchIndex, `${actionPath}.branches[${branchIndex}]`, action.branches.length)).join("")}
+    </div>` : ""}`;
+}
+
+function renderNavigationBranch(branch, behaviorIndex, address, branchIndex, branchPath, length) {
+  const token = `${behaviorIndex}|${address.join(".")}|${branchIndex}`;
+  const fields = navigationFields(branch.style || "push");
+  const terminal = ["back", "dismiss"].includes(branch.style);
+  const destinations = indexDestinations(state.draft, { pageRole: "screen" });
+  return `<section class="navigation-branch" data-issue-path="${h(branchPath)}">
+    <div class="repeated-heading"><h3>${h(t("field.navigation_branch", { index: branchIndex + 1 }))}</h3><button class="mini-button danger" type="button" data-delete-navigation-branch="${h(token)}" ${length <= 2 ? "disabled" : ""} title="${h(t("action.delete_navigation_branch"))}" aria-label="${h(t("action.delete_navigation_branch"))}">&times;</button></div>
+    <div class="form-grid">
+      <label class="full"><span>${h(t("field.condition"))}</span><input data-navigation-branch-condition="${h(token)}" value="${h(branch.condition || "")}" data-issue-path="${h(`${branchPath}.condition`)}"></label>
+      <label><span>${h(t("field.style"))}</span><select data-navigation-branch-style="${h(token)}" data-issue-path="${h(`${branchPath}.style`)}">${state.snapshot.schema.transition_styles.map((style) => `<option value="${h(style)}" ${style === branch.style ? "selected" : ""}>${h(style)}</option>`).join("")}</select></label>
+      ${fields.includes("destination") ? `<label><span>${h(t(terminal ? "field.stack_destination" : "field.destination"))}</span><select data-navigation-branch-destination="${h(token)}" data-issue-path="${h(`${branchPath}.destination`)}"><option value="">${h(t(terminal ? "field.stack_destination_unspecified" : "field.select_destination"))}</option>${destinations.map((item) => `<option value="${h(item.id)}" ${item.id === branch.destination ? "selected" : ""}>${h(item.title)}</option>`).join("")}</select></label>` : ""}
+      ${terminal ? `<p class="field-hint full">${h(t("route.terminal_destination_hint"))}</p>` : ""}
+      ${fields.includes("destination_instance") ? `<label class="toggle-row"><input data-navigation-branch-new="${h(token)}" type="checkbox" ${branch.destination_instance === "new" ? "checked" : ""}><span>${h(t("field.new_instance"))}</span></label>` : ""}
+      ${fields.includes("url") ? `<label class="full"><span>${h(t("field.external_url"))}</span><input type="url" data-navigation-branch-url="${h(token)}" value="${h(branch.url || "")}" data-issue-path="${h(`${branchPath}.url`)}"></label>` : ""}
+      ${fields.includes("parameters") ? renderNavigationBranchParameters(branch, token, branchPath) : ""}
+    </div>
+  </section>`;
+}
+
+function renderNavigationBranchParameters(branch, token, branchPath) {
+  const entries = Object.entries(branch.parameters || {});
+  return `<div class="full parameters" data-issue-path="${h(`${branchPath}.parameters`)}">
+    <div class="section-heading"><h3>${h(t("field.parameters"))}</h3><button class="mini-button" type="button" data-add-navigation-branch-parameter="${h(token)}" title="${h(t("action.add_parameter"))}" aria-label="${h(t("action.add_parameter"))}">+</button></div>
+    ${entries.map(([name, expression], parameterIndex) => `<div class="parameter-row" data-issue-path="${h(`${branchPath}.parameters.${name}`)}">
+      <label><span>${h(t("field.name"))}</span><input data-navigation-branch-param-name="${h(`${token}|${parameterIndex}`)}" value="${h(name)}"></label>
+      <label><span>${h(t("field.expression"))}</span><input data-navigation-branch-param-value="${h(`${token}|${parameterIndex}`)}" value="${h(expression)}"></label>
+      <button class="mini-button danger" type="button" data-delete-navigation-branch-parameter="${h(`${token}|${parameterIndex}`)}" title="${h(t("action.delete_parameter"))}" aria-label="${h(t("action.delete_parameter"))}">&times;</button>
+    </div>`).join("")}
+  </div>`;
 }
 
 function renderNestedActionParameters(action, behaviorIndex, address, actionPath) {
@@ -1084,6 +1134,7 @@ function bindBehaviorAction(behavior, behaviorIndex, action, actionIndex) {
     updateTaskContract(behavior, () => { if (event.target.checked) action.destination_instance = "new"; else delete action.destination_instance; });
     dirty();
   });
+  bindConditionalNavigationFields(behavior, behaviorIndex);
   bindPopupPresentationFields(behavior, behaviorIndex);
 }
 
@@ -1204,7 +1255,92 @@ function bindNestedActions(behavior, behaviorIndex) {
       dirty();
     });
   });
+  bindConditionalNavigationFields(behavior, behaviorIndex);
   bindNestedActionParameterEdits(behavior, behaviorIndex);
+}
+
+function bindConditionalNavigationFields(behavior, behaviorIndex) {
+  document.querySelectorAll(`[data-conditional-navigation^="${behaviorIndex}|"]`).forEach((input) => {
+    if (input.dataset.bound) return;
+    input.dataset.bound = "true";
+    input.addEventListener("change", () => {
+      const [, addressValue] = input.dataset.conditionalNavigation.split("|");
+      const action = actionAtAddress(behavior, parseActionAddress(addressValue));
+      if (!action) return;
+      if (!input.checked && action.branches?.length > 1 && !confirm(t("message.confirm_disable_conditional_navigation"))) {
+        input.checked = true;
+        return;
+      }
+      updateTaskContract(behavior, () => setConditionalNavigation(action, input.checked));
+      dirty(true);
+    });
+  });
+
+  document.querySelectorAll(`[data-navigation-branch-condition^="${behaviorIndex}|"]`).forEach((input) => {
+    bindNavigationBranchInput(input, behavior, "navigationBranchCondition", (branch) => { branch.condition = input.value; });
+  });
+  document.querySelectorAll(`[data-navigation-branch-destination^="${behaviorIndex}|"]`).forEach((select) => {
+    bindNavigationBranchInput(select, behavior, "navigationBranchDestination", (branch) => {
+      if (select.value) branch.destination = select.value;
+      else delete branch.destination;
+    }, "change");
+  });
+  document.querySelectorAll(`[data-navigation-branch-url^="${behaviorIndex}|"]`).forEach((input) => {
+    bindNavigationBranchInput(input, behavior, "navigationBranchUrl", (branch) => {
+      if (input.value) branch.url = input.value;
+      else delete branch.url;
+    });
+  });
+  document.querySelectorAll(`[data-navigation-branch-style^="${behaviorIndex}|"]`).forEach((select) => {
+    bindNavigationBranchInput(select, behavior, "navigationBranchStyle", (branch, action, branchIndex) => {
+      action.branches[branchIndex] = createNavigationBranch({ ...branch, style: select.value });
+    }, "change", true);
+  });
+  document.querySelectorAll(`[data-navigation-branch-new^="${behaviorIndex}|"]`).forEach((input) => {
+    bindNavigationBranchInput(input, behavior, "navigationBranchNew", (branch) => {
+      if (input.checked) branch.destination_instance = "new";
+      else delete branch.destination_instance;
+    }, "change");
+  });
+  document.querySelectorAll(`[data-navigation-branch-param-name^="${behaviorIndex}|"]`).forEach((input) => {
+    bindNavigationBranchParameterInput(input, behavior, "navigationBranchParamName", (branch, parameterIndex) => {
+      const entries = Object.entries(branch.parameters || {});
+      branch.parameters = Object.fromEntries(entries.map(([name, value], index) => [index === parameterIndex ? input.value : name, value]));
+    });
+  });
+  document.querySelectorAll(`[data-navigation-branch-param-value^="${behaviorIndex}|"]`).forEach((input) => {
+    bindNavigationBranchParameterInput(input, behavior, "navigationBranchParamValue", (branch, parameterIndex) => {
+      const name = Object.keys(branch.parameters || {})[parameterIndex];
+      if (name !== undefined) branch.parameters[name] = input.value;
+    });
+  });
+}
+
+function bindNavigationBranchInput(input, behavior, datasetKey, mutate, eventName = "input", rerender = false) {
+  if (input.dataset.bound) return;
+  input.dataset.bound = "true";
+  input.addEventListener(eventName, () => {
+    const [, addressValue, branchValue] = input.dataset[datasetKey].split("|");
+    const action = actionAtAddress(behavior, parseActionAddress(addressValue));
+    const branchIndex = Number(branchValue);
+    const branch = action?.branches?.[branchIndex];
+    if (!branch) return;
+    updateTaskContract(behavior, () => mutate(branch, action, branchIndex));
+    dirty(rerender);
+  });
+}
+
+function bindNavigationBranchParameterInput(input, behavior, datasetKey, mutate) {
+  if (input.dataset.bound) return;
+  input.dataset.bound = "true";
+  input.addEventListener("input", () => {
+    const [, addressValue, branchValue, parameterValue] = input.dataset[datasetKey].split("|");
+    const action = actionAtAddress(behavior, parseActionAddress(addressValue));
+    const branch = action?.branches?.[Number(branchValue)];
+    if (!branch) return;
+    updateTaskContract(behavior, () => mutate(branch, Number(parameterValue)));
+    dirty();
+  });
 }
 
 function bindNestedActionParameterEdits(behavior, behaviorIndex) {
@@ -1775,6 +1911,43 @@ function handleEditorAction(event) {
     updateTaskContract(behavior, (task) => { task.actions ||= []; task.actions.push(createAction()); });
     dirty(true);
   }
+  if (target.dataset.addNavigationBranch) {
+    const [behaviorValue, addressValue] = target.dataset.addNavigationBranch.split("|");
+    const behavior = page.behaviors[Number(behaviorValue)];
+    const action = actionAtAddress(behavior, parseActionAddress(addressValue));
+    if (action?.branches) {
+      updateTaskContract(behavior, () => action.branches.push(createNavigationBranch()));
+      dirty(true);
+    }
+  }
+  if (target.dataset.deleteNavigationBranch) {
+    const [behaviorValue, addressValue, branchValue] = target.dataset.deleteNavigationBranch.split("|");
+    const behavior = page.behaviors[Number(behaviorValue)];
+    const action = actionAtAddress(behavior, parseActionAddress(addressValue));
+    if (action?.branches?.length > 2) {
+      updateTaskContract(behavior, () => action.branches.splice(Number(branchValue), 1));
+      dirty(true);
+    }
+  }
+  if (target.dataset.addNavigationBranchParameter) {
+    const [behaviorValue, addressValue, branchValue] = target.dataset.addNavigationBranchParameter.split("|");
+    const behavior = page.behaviors[Number(behaviorValue)];
+    const branch = actionAtAddress(behavior, parseActionAddress(addressValue))?.branches?.[Number(branchValue)];
+    if (branch) {
+      updateTaskContract(behavior, () => { branch.parameters ||= {}; branch.parameters[uniqueParameter(branch.parameters)] = ""; });
+      dirty(true);
+    }
+  }
+  if (target.dataset.deleteNavigationBranchParameter) {
+    const [behaviorValue, addressValue, branchValue, parameterValue] = target.dataset.deleteNavigationBranchParameter.split("|");
+    const behavior = page.behaviors[Number(behaviorValue)];
+    const branch = actionAtAddress(behavior, parseActionAddress(addressValue))?.branches?.[Number(branchValue)];
+    const parameterName = Object.keys(branch?.parameters || {})[Number(parameterValue)];
+    if (branch && parameterName !== undefined) {
+      updateTaskContract(behavior, () => { delete branch.parameters[parameterName]; });
+      dirty(true);
+    }
+  }
   if (target.dataset.moveBehaviorAction) {
     const [behaviorIndex, actionIndex] = target.dataset.moveBehaviorAction.split(":").map(Number);
     updateTaskContract(page.behaviors[behaviorIndex], (task) => moveAction(task, actionIndex, Number(target.dataset.delta)));
@@ -2004,8 +2177,14 @@ function duplicateModule(id) {
   const nextId = uniqueId(state.draft.modules, `${source.id}-copy`);
   for (const page of copy.pages) {
     for (const behavior of page.behaviors || []) {
-      for (const action of behavior.actions || []) {
-        if (["navigate", "present_popup"].includes(action.type) && action.destination?.startsWith(`${source.id}.`)) {
+      for (const { action } of walkActions(behavior.actions || [])) {
+        if (action.type === "navigate") {
+          for (const route of navigationRoutes(action)) {
+            if (route.destination?.startsWith(`${source.id}.`)) {
+              route.destination = `${nextId}.${route.destination.slice(source.id.length + 1)}`;
+            }
+          }
+        } else if (action.type === "present_popup" && action.destination?.startsWith(`${source.id}.`)) {
           action.destination = `${nextId}.${action.destination.slice(source.id.length + 1)}`;
         }
       }
@@ -2076,8 +2255,14 @@ function renameModule(module, proposed) {
   if (state.draft.modules.some((item) => item !== module && item.id === next)) return alert(t("message.module_id_exists"));
   const previous = module.id;
   for (const owner of state.draft.modules) for (const page of owner.pages) for (const behavior of page.behaviors || []) {
-    for (const action of behavior.actions || []) {
-      if (["navigate", "present_popup"].includes(action.type) && action.destination?.startsWith(`${previous}.`)) {
+    for (const { action } of walkActions(behavior.actions || [])) {
+      if (action.type === "navigate") {
+        for (const route of navigationRoutes(action)) {
+          if (route.destination?.startsWith(`${previous}.`)) {
+            route.destination = `${next}.${route.destination.slice(previous.length + 1)}`;
+          }
+        }
+      } else if (action.type === "present_popup" && action.destination?.startsWith(`${previous}.`)) {
         action.destination = `${next}.${action.destination.slice(previous.length + 1)}`;
       }
     }

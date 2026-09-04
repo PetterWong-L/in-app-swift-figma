@@ -28,8 +28,8 @@ class TaskConfigWebBridgeTest < Minitest::Test
     assert_equal true, payload.fetch("ok")
     assert_equal 200, payload.fetch("status")
     assert_match(/\A[0-9a-f]{64}\z/, payload.dig("snapshot", "revision"))
-    assert_includes payload.dig("snapshot", "yaml_preview"), "schema_version: 6"
-    assert_equal 6, payload.dig("snapshot", "schema", "version")
+    assert_includes payload.dig("snapshot", "yaml_preview"), "schema_version: 7"
+    assert_equal 7, payload.dig("snapshot", "schema", "version")
   end
 
   def test_validate_returns_422_with_structured_issues
@@ -55,13 +55,13 @@ class TaskConfigWebBridgeTest < Minitest::Test
     assert_equal "revision_conflict", payload.dig("error", "code")
   end
 
-  def test_snapshot_migrates_schema_v2_fixture_to_v6
+  def test_snapshot_migrates_schema_v2_fixture_to_current_schema
     File.write(@path, "# Header\n#{YAML.dump(valid_v2_config)}")
 
     payload, err, status = run_bridge("snapshot", {})
 
     assert status.success?, err
-    assert_equal 6, payload.dig("snapshot", "schema", "version")
+    assert_equal 7, payload.dig("snapshot", "schema", "version")
     page = payload.dig("snapshot", "config", "modules", 0, "pages", 0)
     assert_equal "screen", page.fetch("page_role")
     assert_equal "account.page-b", page.dig("behaviors", 0, "actions", 0, "destination")

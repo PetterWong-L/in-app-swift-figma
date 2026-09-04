@@ -15,7 +15,7 @@ class UnifiedBehaviorTest < Minitest::Test
       File.write(path, YAML.dump(config))
       snapshot = TaskConfig.new(path).snapshot
 
-      assert_equal 6, snapshot.dig("schema", "version")
+      assert_equal 7, snapshot.dig("schema", "version")
       page = snapshot.dig("config", "modules", 0, "pages", 0)
       refute page.key?("state_transitions")
       refute page.key?("navigation")
@@ -35,6 +35,70 @@ class UnifiedBehaviorTest < Minitest::Test
     [state_only, actions_only].each do |config|
       TaskConfig.send(:from_data, config, path: "InAppFigma.yaml").validate!
     end
+  end
+
+  def test_timer_actions_accept_countdown_without_parameters_and_countup_targets
+    config = schema_v3_config
+    page = config.dig("modules", 0, "pages", 0)
+    page["behaviors"] = [
+      interaction("start-countdown", "countdown", { "event" => "tap" }, [
+        { "type" => "start_countdown", "target" => "countdown" }
+      ]),
+      interaction("start-countup", "elapsed", { "event" => "tap" }, [
+        { "type" => "start_countup", "target" => "elapsed" }
+      ]),
+      interaction("stop-countup", "elapsed", { "event" => "tap" }, [
+        { "type" => "stop_countup", "target" => "elapsed" }
+      ])
+    ]
+
+    TaskConfig.send(:from_data, config, path: "InAppFigma.yaml").validate!
+  end
+
+  def test_conditional_navigation_accepts_two_complete_destination_branches
+    config = schema_v3_config
+    page = config.dig("modules", 0, "pages", 0)
+    page["behaviors"] = [interaction("continue", "continue-button", { "event" => "tap" }, [{
+      "type" => "navigate",
+      "branches" => [
+        {
+          "condition" => "session.is_member",
+          "style" => "push",
+          "destination" => "account.home",
+          "destination_instance" => "new",
+          "parameters" => { "userID" => "session.user_id" }
+        },
+        {
+          "condition" => "!session.is_member",
+          "style" => "sheet",
+          "destination" => "account.home",
+          "destination_instance" => "new",
+          "parameters" => {}
+        }
+      ]
+    }])]
+
+    TaskConfig.send(:from_data, config, path: "InAppFigma.yaml").validate!
+  end
+
+  def test_conditional_navigation_rejects_missing_conditions_and_mixed_single_route_fields
+    config = schema_v3_config
+    page = config.dig("modules", 0, "pages", 0)
+    page["behaviors"] = [interaction("continue", "continue-button", { "event" => "tap" }, [{
+      "type" => "navigate",
+      "style" => "push",
+      "destination" => "account.home",
+      "branches" => [
+        { "condition" => "", "style" => "push", "destination" => "account.home" },
+        { "condition" => "session.is_guest", "style" => "push", "destination" => "account.home" }
+      ]
+    }])]
+
+    error = assert_raises(TaskConfigError) do
+      TaskConfig.send(:from_data, config, path: "InAppFigma.yaml").validate!
+    end
+    assert_includes error.message, "navigate with branches must not define style"
+    assert_includes error.message, "branches[0].condition must be a non-empty string"
   end
 
   def test_popup_only_module_accepts_a_null_entry_page
@@ -143,9 +207,9 @@ class UnifiedBehaviorTest < Minitest::Test
 
     error = assert_raises(TaskConfigError) { TaskConfig.send(:from_data, config, path: "InAppFigma.yaml").validate! }
 
-    assert_includes error.message, "state_transitions is not supported in schema v6"
-    assert_includes error.message, "navigation is not supported in schema v6"
-    assert_includes error.message, "action is not supported in schema v6"
+    assert_includes error.message, "state_transitions is not supported in schema v7"
+    assert_includes error.message, "navigation is not supported in schema v7"
+    assert_includes error.message, "action is not supported in schema v7"
   end
 
   def test_schema_v1_transitions_migrate_to_unified_behaviors
@@ -175,7 +239,7 @@ class UnifiedBehaviorTest < Minitest::Test
       migrated = TaskConfig.new(path).data
       behaviors = migrated.dig("modules", 0, "pages", 0, "behaviors")
 
-      assert_equal 6, migrated.fetch("schema_version")
+      assert_equal 7, migrated.fetch("schema_version")
       assert_equal({ "event" => "tap" }, behaviors[0].fetch("trigger"))
       assert_equal "help", behaviors[0].fetch("target")
       assert_equal "submitting", behaviors[0].fetch("state_change")

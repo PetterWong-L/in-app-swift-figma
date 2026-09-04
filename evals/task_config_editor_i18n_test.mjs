@@ -122,6 +122,19 @@ test("unified interaction labels are available in both languages", () => {
   assert.equal(english.t("behavior.action.present_popup"), "Present popup (present_popup)");
   assert.equal(chinese.t("behavior.trigger.tap"), "点击（tap）");
   assert.equal(chinese.t("behavior.action.present_popup"), "展示弹窗（present_popup）");
+  assert.equal(chinese.t("behavior.action.start_countup"), "开始正计时（start_countup）");
+  assert.equal(english.t("behavior.action.stop_countup"), "Stop count-up timer (stop_countup)");
+  assert.equal(chinese.t("field.conditional_navigation"), "根据条件跳转不同页面");
+  assert.equal(english.t("action.add_navigation_branch"), "Add navigation branch");
+});
+
+test("behavior editor exposes conditional navigation branches without countdown parameters", () => {
+  const app = readFileSync(new URL("../scripts/editor/app.mjs", import.meta.url), "utf8");
+
+  assert.match(app, /data-conditional-navigation/);
+  assert.match(app, /data-add-navigation-branch/);
+  assert.match(app, /data-navigation-branch-condition/);
+  assert.doesNotMatch(app, /action\.type === "start_countdown" \|\| \(action\.type === "navigate"/);
 });
 
 test("popup template and presentation callback configuration is localized in both languages", () => {

@@ -23,7 +23,7 @@ class TaskConfigEditorDomainTest < Minitest::Test
     assert_equal "account", snapshot.fetch("config").fetch("modules").first.fetch("id")
     assert_match(/\A[0-9a-f]{64}\z/, snapshot.fetch("revision"))
     assert_equal({ "pages" => 2, "states" => 2, "behaviors" => 2, "mock_data_sources" => 0 }, snapshot.fetch("counts"))
-    assert_equal 6, snapshot.dig("schema", "version")
+    assert_equal 7, snapshot.dig("schema", "version")
     assert_includes snapshot.dig("schema", "statuses"), "in_progress"
     assert_equal %w[todo in_progress done], snapshot.dig("schema", "implementation_statuses")
     assert_includes snapshot.dig("schema", "transition_styles"), "full_screen"

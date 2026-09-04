@@ -54,7 +54,7 @@ test("binds to loopback and protects API with a fragment bearer token", async ()
     assert.equal(response.status, 200);
     const payload = await response.json();
     assert.equal(payload.ok, true);
-    assert.equal(payload.snapshot.schema.version, 6);
+    assert.equal(payload.snapshot.schema.version, 7);
     assert.ok(!JSON.stringify(payload).includes(instance.token));
   } finally {
     await instance.close();

@@ -295,23 +295,17 @@ export function createAction(seed = {}) {
   const type = seed.type || "start_countdown";
   const action = { type };
 
-  if (["start_countdown", "stop_countdown", "play_video", "pause_video", "stop_video"].includes(type)) {
+  if (["start_countdown", "stop_countdown", "start_countup", "stop_countup", "play_video", "pause_video", "stop_video"].includes(type)) {
     if (seed.target) action.target = seed.target;
-    if (type === "start_countdown") action.parameters = structuredClone(seed.parameters || {});
+    if (seed.parameters) action.parameters = structuredClone(seed.parameters);
     return action;
   }
 
   if (type === "navigate") {
-    const style = seed.style || "push";
-    action.style = style;
-    if (["push", "sheet", "full_screen"].includes(style)) {
-      action.destination = seed.destination || "";
-      action.parameters = structuredClone(seed.parameters || {});
-      if (seed.destination_instance) action.destination_instance = seed.destination_instance;
-    } else if (["back", "dismiss"].includes(style)) {
-      if (seed.destination) action.destination = seed.destination;
-    } else if (style === "external" && seed.url) {
-      action.url = seed.url;
+    if (Array.isArray(seed.branches)) {
+      action.branches = seed.branches.map((branch) => createNavigationBranch(branch));
+    } else {
+      Object.assign(action, navigationRouteFields(seed));
     }
     return action;
   }
@@ -325,6 +319,52 @@ export function createAction(seed = {}) {
 
   if (["emit_event", "custom"].includes(type) && seed.name) action.name = seed.name;
   return action;
+}
+
+export function createNavigationBranch(seed = {}) {
+  return {
+    condition: seed.condition || "",
+    ...navigationRouteFields(seed)
+  };
+}
+
+export function navigationRoutes(action) {
+  return Array.isArray(action?.branches) ? action.branches : action ? [action] : [];
+}
+
+export function setConditionalNavigation(action, enabled) {
+  if (!action || action.type !== "navigate") return action;
+  if (enabled && !Array.isArray(action.branches)) {
+    const first = createNavigationBranch(action);
+    replaceObjectFields(action, {
+      type: "navigate",
+      branches: [first, createNavigationBranch()]
+    });
+  } else if (!enabled && Array.isArray(action.branches)) {
+    const first = action.branches[0] || createNavigationBranch();
+    replaceObjectFields(action, { type: "navigate", ...navigationRouteFields(first) });
+  }
+  return action;
+}
+
+function navigationRouteFields(seed = {}) {
+  const style = seed.style || "push";
+  const route = { style };
+  if (["push", "sheet", "full_screen"].includes(style)) {
+    route.destination = seed.destination || "";
+    route.parameters = structuredClone(seed.parameters || {});
+    if (seed.destination_instance) route.destination_instance = seed.destination_instance;
+  } else if (["back", "dismiss"].includes(style)) {
+    if (seed.destination) route.destination = seed.destination;
+  } else if (style === "external" && seed.url) {
+    route.url = seed.url;
+  }
+  return route;
+}
+
+function replaceObjectFields(target, replacement) {
+  for (const key of Object.keys(target)) delete target[key];
+  Object.assign(target, replacement);
 }
 
 export function changeActionType(action, type) {
@@ -622,7 +662,10 @@ export function incomingRoutes(config, canonicalPageId) {
     for (const page of module.pages || []) {
       for (const behavior of page.behaviors || []) {
         for (const { action } of walkActions(behavior.actions || [])) {
-          if (!["navigate", "present_popup"].includes(action.type) || action.destination !== canonicalPageId) continue;
+          const reachesDestination = action.type === "navigate"
+            ? navigationRoutes(action).some((route) => route.destination === canonicalPageId)
+            : action.type === "present_popup" && action.destination === canonicalPageId;
+          if (!reachesDestination) continue;
           incoming.push({
             sourceModuleId: module.id,
             sourcePageId: page.id,
@@ -640,7 +683,11 @@ export function retargetPageReferences(config, previousId, nextId) {
     for (const page of module.pages || []) {
       for (const behavior of page.behaviors || []) {
         for (const { action } of walkActions(behavior.actions || [])) {
-          if (["navigate", "present_popup"].includes(action.type) && action.destination === previousId) {
+          if (action.type === "navigate") {
+            for (const route of navigationRoutes(action)) {
+              if (route.destination === previousId) route.destination = nextId;
+            }
+          } else if (action.type === "present_popup" && action.destination === previousId) {
             action.destination = nextId;
           }
         }
@@ -880,19 +927,23 @@ export function buildFlowGraph(config) {
       const presentationIndex = callbackActions.findIndex((candidate) => ["navigate", "present_popup", "dismiss_popup"].includes(candidate?.type));
       const presentation = presentationIndex === -1 ? null : callbackActions[presentationIndex];
       const callbackPath = `${actionPath}.buttons[${buttonIndex}].callback.actions[${presentationIndex === -1 ? 0 : presentationIndex}]`;
-      if (presentation?.type === "navigate" && presentation.destination && screenNodeIds.has(presentation.destination)) {
-        addEdge({
-          id: `${instanceId}:${button.id}:${presentationIndex}`,
-          source: instanceId,
-          target: presentation.destination,
-          transitionId: button.id,
-          actionIndex: presentationIndex,
-          actionType: "navigate",
-          action: button.id,
-          style: presentation.style,
-          kind: "navigation",
-          terminal: ["back", "dismiss"].includes(presentation.style)
-        });
+      if (presentation?.type === "navigate") {
+        for (const [branchIndex, route] of navigationRoutes(presentation).entries()) {
+          if (!route.destination || !screenNodeIds.has(route.destination)) continue;
+          addEdge({
+            id: `${instanceId}:${button.id}:${presentationIndex}:${branchIndex}`,
+            source: instanceId,
+            target: route.destination,
+            transitionId: button.id,
+            actionIndex: presentationIndex,
+            actionType: "navigate",
+            action: button.id,
+            style: route.style,
+            condition: route.condition,
+            kind: "navigation",
+            terminal: ["back", "dismiss"].includes(route.style)
+          });
+        }
       } else if (presentation?.type === "present_popup") {
         addPopupInstance({
           action: presentation,
@@ -952,19 +1003,22 @@ export function buildFlowGraph(config) {
             });
             continue;
           }
-          if (action.type !== "navigate" || !action.destination || !screenNodeIds.has(action.destination)) continue;
-          addEdge({
-            id: `${source}:${behavior.id}:${actionIndex}`,
-            kind: "navigation",
-            source,
-            target: action.destination,
-            transitionId: behavior.id,
-            actionIndex,
-            action: behaviorTriggerLabel(behavior),
-            style: action.style,
-            condition: behavior.condition,
-            terminal: ["back", "dismiss"].includes(action.style)
-          });
+          if (action.type !== "navigate") continue;
+          for (const [branchIndex, route] of navigationRoutes(action).entries()) {
+            if (!route.destination || !screenNodeIds.has(route.destination)) continue;
+            addEdge({
+              id: `${source}:${behavior.id}:${actionIndex}${Array.isArray(action.branches) ? `:${branchIndex}` : ""}`,
+              kind: "navigation",
+              source,
+              target: route.destination,
+              transitionId: behavior.id,
+              actionIndex,
+              action: behaviorTriggerLabel(behavior),
+              style: route.style,
+              condition: route.condition || behavior.condition,
+              terminal: ["back", "dismiss"].includes(route.style)
+            });
+          }
         }
       }
     }

@@ -111,8 +111,8 @@
 #             actions:
 #               - type: start_countdown
 #                 target: countdown_label
-#                 parameters:
-#                   duration_seconds: "30"
+#               - type: start_countup
+#                 target: elapsed_time_label
 #             run_policy: every_time
 #           # Page A -> Page B
 #           # a1 -> a2 -> a3 while more A data remains.
@@ -130,6 +130,25 @@
 #                 destination_instance: new
 #                 parameters:
 #                   item: next_item
+#             run_policy: every_time
+#           # Use branches when one navigation event has condition-dependent
+#           # destinations. Every branch condition must be non-empty and unique.
+#           - id: continue-by-membership
+#             implementation_status: todo
+#             type: interaction
+#             target: membership_button
+#             trigger:
+#               event: tap
+#             actions:
+#               - type: navigate
+#                 branches:
+#                   - condition: session.is_member
+#                     style: push
+#                     destination: account.page-b
+#                     parameters: {}
+#                   - condition: "!session.is_member"
+#                     style: external
+#                     url: https://example.com/sign-in
 #             run_policy: every_time
 #       - id: page-b
 #         title: Page B
@@ -244,7 +263,7 @@
 # ignores only OS-owned pixels inside that component boundary while continuing
 # to verify app-controlled content, state, behavior, and surrounding layout.
 
-schema_version: 6
+schema_version: 7
 delivery:
   profile: strict
 execution:

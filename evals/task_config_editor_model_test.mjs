@@ -12,6 +12,7 @@ import {
   createAutoSaveCoordinator,
   createAction,
   createBehavior,
+  createNavigationBranch,
   createDataDependency,
   createModule,
   createMockDataSource,
@@ -40,11 +41,14 @@ import {
   restoreRemovedTask,
   retargetBehaviorReferences,
   retargetMockDataSourceReferences,
+  retargetPageReferences,
   retargetStateReferences,
   reconcileModuleEntryPage,
   moveAction,
   mutatePageTaskContracts,
   navigationFields,
+  navigationRoutes,
+  setConditionalNavigation,
   slugify,
   stepFlowZoom,
   statusActions,
@@ -492,6 +496,15 @@ test("action helpers apply type defaults and preserve ordered entries", () => {
     destination: ""
   });
   assert.deepEqual(createAction({ type: "dismiss_popup" }), { type: "dismiss_popup" });
+  assert.deepEqual(createAction({ type: "start_countdown" }), { type: "start_countdown" });
+  assert.deepEqual(createAction({ type: "start_countup", target: "elapsed_time" }), {
+    type: "start_countup",
+    target: "elapsed_time"
+  });
+  assert.deepEqual(createAction({ type: "stop_countup", target: "elapsed_time" }), {
+    type: "stop_countup",
+    target: "elapsed_time"
+  });
 
   const behavior = createBehavior({
     id: "submit",
@@ -503,11 +516,71 @@ test("action helpers apply type defaults and preserve ordered entries", () => {
     ]
   });
   changeActionType(behavior.actions[0], "start_countdown");
-  assert.deepEqual(behavior.actions[0], { type: "start_countdown", parameters: {} });
+  assert.deepEqual(behavior.actions[0], { type: "start_countdown" });
   moveAction(behavior, 2, -1);
   assert.deepEqual(behavior.actions.map((action) => action.type), ["start_countdown", "present_popup", "navigate"]);
   removeActionAt(behavior, 1);
   assert.deepEqual(behavior.actions.map((action) => action.type), ["start_countdown", "navigate"]);
+});
+
+test("conditional navigation converts between one route and explicit branches", () => {
+  const action = createAction({
+    type: "navigate",
+    style: "push",
+    destination: "account.member-home",
+    parameters: { userID: "session.user_id" }
+  });
+
+  setConditionalNavigation(action, true);
+  assert.deepEqual(action, {
+    type: "navigate",
+    branches: [
+      {
+        condition: "",
+        style: "push",
+        destination: "account.member-home",
+        parameters: { userID: "session.user_id" }
+      },
+      createNavigationBranch()
+    ]
+  });
+  assert.deepEqual(navigationRoutes(action), action.branches);
+
+  action.branches[0].condition = "session.is_member";
+  setConditionalNavigation(action, false);
+  assert.deepEqual(action, {
+    type: "navigate",
+    style: "push",
+    destination: "account.member-home",
+    parameters: { userID: "session.user_id" }
+  });
+  assert.deepEqual(navigationRoutes(action), [action]);
+});
+
+test("flow graph emits one labeled edge for every conditional navigation branch", () => {
+  const config = configFixture();
+  config.modules[0].pages[0].behaviors[0].actions = [{
+    type: "navigate",
+    branches: [
+      { condition: "session.is_member", style: "push", destination: "account.page-a", parameters: {} },
+      { condition: "!session.is_member", style: "full_screen", destination: "account.page-b", parameters: {} }
+    ]
+  }];
+
+  const graph = buildFlowGraph(config);
+  const edges = graph.edges.filter((edge) => edge.transitionId === "next-a");
+  assert.deepEqual(edges.map(({ target, style, condition }) => ({ target, style, condition })), [
+    { target: "account.page-a", style: "push", condition: "session.is_member" },
+    { target: "account.page-b", style: "full_screen", condition: "!session.is_member" }
+  ]);
+  assert.deepEqual(incomingRoutes(config, "account.page-b"), [{
+    sourceModuleId: "account",
+    sourcePageId: "page-a",
+    transitionId: "next-a"
+  }]);
+
+  retargetPageReferences(config, "account.page-b", "account.page-a");
+  assert.equal(config.modules[0].pages[0].behaviors[0].actions[0].branches[1].destination, "account.page-a");
 });
 
 test("interaction source references follow behavior rename and deletion", () => {

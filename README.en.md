@@ -255,7 +255,7 @@ An interaction owns the complete result of one event:
   run_policy: every_time
 ```
 
-The implementation applies `state_change` first, then executes `actions[]` in declaration order. Actions cover navigation, popup presentation/dismissal, countdowns, video control, emitted events, and custom behavior.
+The implementation applies `state_change` first, then executes `actions[]` in declaration order. Actions cover navigation, popup presentation/dismissal, countdown and count-up timers, video control, emitted events, and custom behavior. Countdown and count-up actions require only a semantic `target`; the editor no longer asks for a generic countdown parameter.
 
 For navigation:
 
@@ -263,6 +263,7 @@ For navigation:
 - Use `back` or `dismiss` only for an existing page instance that will be revealed.
 - Use `external` with a URL.
 - Add `destination_instance: new` when navigating to a new instance of the same page type.
+- Enable **Navigate to different pages by condition** when one navigation event can select different destinations, then define at least two branches with mutually exclusive, non-empty unique conditions and their own routes.
 
 Reusable popups are separate `page_role: popup` templates. Every caller supplies its content, button text, and callback. A button dismisses its concrete popup before it changes caller state or performs callback actions.
 

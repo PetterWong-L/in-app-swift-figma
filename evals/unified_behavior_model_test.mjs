@@ -19,7 +19,7 @@ import {
   triggerEventsForPage
 } from "../scripts/editor/model.mjs";
 
-test("schema v6 editor choices remove legacy popup result contracts", () => {
+test("current editor choices remove legacy popup result contracts", () => {
   assert.deepEqual(
     triggerEventsForPage(["tap", "popup_result"], "popup"),
     ["tap"]
