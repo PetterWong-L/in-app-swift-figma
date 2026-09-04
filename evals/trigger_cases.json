@@ -1,0 +1,77 @@
+{
+  "recommended_threshold": 0.5,
+  "should_trigger": [
+    {
+      "text": "根据这个 Figma node 在现有 UIKit iOS App 中实现账号安全页面，复用当前路由和组件。",
+      "family": "figma_screen"
+    },
+    {
+      "text": "Implement the default, loading, and failed Figma states for this in-app UIKit payment screen.",
+      "family": "multi_state_screen"
+    },
+    {
+      "text": "把这张设计截图还原成项目内的 UIKit 订阅组件，并适配小屏和长文本。",
+      "family": "screenshot_component"
+    },
+    {
+      "text": "Export the custom Figma icons into the existing iOS asset catalog and verify the UIKit screen visually.",
+      "family": "assets_and_verification"
+    },
+    {
+      "text": "使用 in-app-swift-figma 并行实现三个相互独立的 UIKit in-app 模块，每个模块使用独立 worktree 和 commit。",
+      "family": "explicit_parallel_modules"
+    },
+    {
+      "text": "根据 Figma 在现有 UIKit App 中用系统 UIHostingController + SwiftUI 实现设置详情页，并使用系统导航栏。",
+      "family": "hosting_controller_swiftui"
+    },
+    {
+      "text": "初始化 in-app-swift-figma，并生成模块、页面、状态和页面跳转的长任务配置文件。",
+      "family": "task_config_initialization"
+    },
+    {
+      "text": "按照 InAppFigma.yaml 继续实现剩余页面，完成一页就更新状态并跳过已经 done 的页面。",
+      "family": "long_task_resume"
+    },
+    {
+      "text": "配置页面 A 不断 push 新的 A 实例，并在结束条件满足时 present 页面 B，同时传递下一个 item。",
+      "family": "conditional_dynamic_instance_navigation"
+    },
+    {
+      "text": "在本地浏览器中打开并配置 InAppFigma.yaml，按模块、页面和 Figma 状态维护长任务。",
+      "family": "local_task_config_editor"
+    }
+  ],
+  "should_not_trigger": [
+    {
+      "text": "用 ob-swift-figma 执行 OBFigma.md 中的 GeneralOB onboarding 页面队列。",
+      "family": "generalob_onboarding"
+    },
+    {
+      "text": "把这个 Figma landing page 做成 React 网页。",
+      "family": "web_target"
+    },
+    {
+      "text": "只在 Figma 中调整组件库，不要修改应用代码。",
+      "family": "design_only"
+    },
+    {
+      "text": "修复现有 UIKit 页面中的数组越界崩溃，不涉及 UI 设计。",
+      "family": "non_design_bugfix"
+    },
+    {
+      "text": "Create a new standalone SwiftUI app from this product idea without an existing iOS project or design evidence.",
+      "family": "new_swiftui_app"
+    }
+  ],
+  "near_neighbor": [
+    {
+      "text": "根据产品说明实现一个新的 UIKit 设置页面，但没有 Figma、截图或视觉规格。",
+      "family": "uikit_without_design_evidence"
+    },
+    {
+      "text": "评审这个 UIKit 页面是否符合项目架构，不要求对照设计。",
+      "family": "architecture_review_only"
+    }
+  ]
+}

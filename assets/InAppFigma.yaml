@@ -1,0 +1,257 @@
+# InAppFigma long-task configuration
+#
+# This file is generated in the project-root InAppFigma/ directory for
+# development orchestration only. Keep it outside the app target, Compile
+# Sources, and Copy Bundle Resources. The shipped app never parses this file.
+#
+# Hierarchy: module -> page -> state. Pages declare page_role: screen or popup.
+# A reusable popup owns enabled text slots, ordered button ids, and appearance.
+# Each present_popup action supplies the concrete text and caller-owned button
+# callbacks for one presentation; do not duplicate popup appearance as source
+# page states.
+#
+# Page lifecycle:
+#   todo -> in_progress -> done
+#                       -> failed  (eligible for another claim)
+#                       -> blocked (requires an explicit requeue)
+#   done -> in_progress (amendment; archives the accepted baseline)
+#
+# Behaviors describe page events. When an interaction runs, apply state_change
+# first, then execute actions in declaration order. Navigation and popup
+# destinations use canonical module.page ids.
+#
+# Each state, behavior, and popup structure is an independently editable task.
+# New tasks start at implementation_status: todo. accepted_baseline and
+# removed_tasks are tool-owned; do not hand-edit their contracts or membership.
+#
+# mock_data_sources:
+#   - id: account-session
+#     swift_type: AccountSession
+#     fixture: standard
+# modules:
+#   - id: account
+#     title: Account
+#     entry_page: page-a
+#     pages:
+#       - id: page-a
+#         title: Page A
+#         page_type: view
+#         page_role: screen
+#         status: todo
+#         attempts: 0
+#         commit:
+#         reason:
+#         started_at:
+#         completed_at:
+#         acceptance_history: []
+#         accepted_baseline:
+#         removed_tasks: []
+#         data_dependencies:
+#           - source: account-session
+#             access: read_write
+#         states:
+#           - id: default
+#             implementation_status: todo
+#             title: Default
+#             figma_url: https://www.figma.com/design/FILE/Page-A?node-id=1-2
+#           - id: loading
+#             implementation_status: todo
+#             title: Loading
+#             figma_url: https://www.figma.com/design/FILE/Page-A?node-id=1-3
+#         behaviors:
+#           - id: main-content-scroll
+#             implementation_status: todo
+#             type: scroll
+#             target: content_below_navigation
+#             axis: vertical
+#             fixed_regions:
+#               - navigation_bar
+#               - bottom_action
+#           # An interaction may combine a same-page state change and ordered
+#           # effects. A popup presentation binds every enabled template field
+#           # and every declared button for this caller.
+#           - id: submit-and-show-confirmation
+#             implementation_status: todo
+#             type: interaction
+#             target: submit_button
+#             states:
+#               - default
+#             trigger:
+#               event: tap
+#             state_change: loading
+#             actions:
+#               - type: emit_event
+#                 name: submission_started
+#               - type: present_popup
+#                 destination: common.confirmation-popup
+#                 content:
+#                   title: confirmation_title
+#                   content: confirmation_message
+#                 buttons:
+#                   - id: cancel
+#                     text: cancel_text
+#                     callback:
+#                       actions:
+#                         - type: dismiss_popup
+#                   - id: confirm
+#                     text: confirm_text
+#                     callback:
+#                       state_change: loading
+#                       actions:
+#                         - type: navigate
+#                           style: push
+#                           destination: account.page-b
+#             run_policy: every_time
+#           - id: workout-countdown
+#             implementation_status: todo
+#             type: interaction
+#             target: start_button
+#             trigger:
+#               event: tap
+#             actions:
+#               - type: start_countdown
+#                 target: countdown_label
+#                 parameters:
+#                   duration_seconds: "30"
+#             run_policy: every_time
+#           # Page A -> Page B
+#           # a1 -> a2 -> a3 while more A data remains.
+#           - id: continue-with-next-a
+#             implementation_status: todo
+#             type: interaction
+#             target: continue_button
+#             condition: has_next_a
+#             trigger:
+#               event: tap
+#             actions:
+#               - type: navigate
+#                 style: push
+#                 destination: account.page-a
+#                 destination_instance: new
+#                 parameters:
+#                   item: next_item
+#             run_policy: every_time
+#       - id: page-b
+#         title: Page B
+#         page_type: view_controller
+#         page_role: screen
+#         status: todo
+#         attempts: 0
+#         commit:
+#         reason:
+#         started_at:
+#         completed_at:
+#         acceptance_history: []
+#         accepted_baseline:
+#         removed_tasks: []
+#         data_dependencies:
+#           - source: account-session
+#             access: read_only
+#         states:
+#           - id: default
+#             implementation_status: todo
+#             title: Default
+#             figma_url: https://www.figma.com/design/FILE/Page-B?node-id=2-1
+#         behaviors:
+#           - id: close
+#             implementation_status: todo
+#             type: interaction
+#             target: close_button
+#             trigger:
+#               event: tap
+#             actions:
+#               - type: navigate
+#                 style: back
+#                 destination: account.page-a
+#             run_policy: every_time
+#   - id: common
+#     title: Common
+#     entry_page: popup-library
+#     pages:
+#       - id: popup-library
+#         title: Popup Library
+#         page_type: view
+#         page_role: screen
+#         status: todo
+#         attempts: 0
+#         commit:
+#         reason:
+#         started_at:
+#         completed_at:
+#         acceptance_history: []
+#         accepted_baseline:
+#         removed_tasks: []
+#         data_dependencies: []
+#         popup:
+#           implementation_status: todo
+#           fields:
+#             title: true
+#             subtitle: false
+#             content: true
+#           buttons:
+#             - id: cancel
+#             - id: confirm
+#         states:
+#           - id: default
+#             implementation_status: todo
+#             title: Default
+#             figma_url: https://www.figma.com/design/FILE/Popup-Library?node-id=3-1
+#         behaviors: []
+#       - id: confirmation-popup
+#         title: Confirmation Popup
+#         page_type: view
+#         page_role: popup
+#         status: todo
+#         attempts: 0
+#         commit:
+#         reason:
+#         started_at:
+#         completed_at:
+#         acceptance_history: []
+#         accepted_baseline:
+#         removed_tasks: []
+#         data_dependencies: []
+#         states:
+#           - id: default
+#             implementation_status: todo
+#             title: Default
+#             figma_url: https://www.figma.com/design/FILE/Confirmation-Popup?node-id=3-2
+#         behaviors: []
+#
+# Navigate styles:
+#   push, sheet, full_screen: require a screen destination: module.page
+#   back, dismiss:             optional screen destination identifies the existing page revealed afterward
+#   external:                  requires url instead of destination
+# present_popup requires a popup destination: module.page, exact content keys
+# for enabled template fields, and one text/callback binding per ordered button.
+# Clicking a popup button closes that popup before its optional caller state
+# change and ordered callback actions. dismiss_popup has no destination. An
+# action list permits at most one presentation-changing action (navigate,
+# present_popup, or dismiss_popup), and it must be the final item.
+#
+# page_type view creates {Title}View.swift. page_type view_controller also
+# creates {Title}ViewController.swift, which embeds the SwiftUI view through a
+# child system UIHostingController. Legacy pages without page_type default to
+# view. Legacy popup-like states require manual remodeling into popup pages;
+# migration never infers that intent.
+#
+# execution.parallel: true is an explicit request to use the skill's parallel
+# workflow when at least two pages/modules are independent. max_parallel limits
+# the concurrent batch size; it does not make dependent pages parallel.
+#
+# system_ui flags are explicit visual-gate exceptions. true requires proof that
+# the implementation uses the corresponding system component. Review then
+# ignores only OS-owned pixels inside that component boundary while continuing
+# to verify app-controlled content, state, behavior, and surrounding layout.
+
+schema_version: 6
+delivery:
+  profile: strict
+execution:
+  parallel: false
+  max_parallel: 3
+system_ui:
+  tab_bar_controller: false
+  picker: false
+mock_data_sources: []
+modules: []

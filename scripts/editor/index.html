@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InAppFigma 编辑器</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app" class="app-shell" aria-busy="true">
+    <header class="toolbar">
+      <div class="brand-block">
+        <strong>InAppFigma</strong>
+        <span id="project-path" class="project-path"></span>
+      </div>
+      <div id="dirty-state" class="dirty-state" aria-live="polite" data-i18n="loading">加载中</div>
+      <div id="validation-status" class="validation-status" aria-live="polite" hidden>
+        <span id="issue-count" class="count-badge">0</span>
+        <span id="validation-summary"></span>
+      </div>
+      <div id="language-switch" class="language-switch" role="group" aria-label="界面语言" data-i18n-aria-label="language.label">
+        <button type="button" data-locale="zh-CN" aria-pressed="true" data-i18n="language.zh-CN">中文</button>
+        <button type="button" data-locale="en" aria-pressed="false" data-i18n="language.en">English</button>
+      </div>
+      <div class="toolbar-actions">
+        <button id="reload-button" type="button" data-i18n="toolbar.reload">重新加载</button>
+        <button id="validate-button" type="button" data-i18n="toolbar.validate">校验</button>
+        <button id="preview-button" type="button" data-i18n="toolbar.preview">YAML 预览</button>
+        <button id="save-button" class="primary" type="button" data-i18n="toolbar.save">保存</button>
+        <button id="shutdown-button" type="button" data-i18n="toolbar.stop">停止</button>
+      </div>
+    </header>
+
+    <div id="conflict-banner" class="conflict-banner" hidden>
+      <span data-i18n="conflict.message">磁盘上的配置已发生变化。</span>
+      <button id="conflict-reload-button" type="button" data-i18n="conflict.reload">加载磁盘版本</button>
+    </div>
+
+    <div class="workspace">
+      <aside class="sidebar" aria-label="配置大纲" data-i18n-aria-label="outline.label">
+        <section class="outline-section">
+          <div class="section-heading">
+            <h2 data-i18n="outline.modules">模块</h2>
+            <button id="add-module-button" class="icon-button" type="button" title="新增模块" aria-label="新增模块" data-i18n-title="action.add_module" data-i18n-aria-label="action.add_module">+</button>
+          </div>
+          <ol id="module-list" class="outline-list"></ol>
+        </section>
+        <section class="execution-section">
+          <h2 data-i18n="outline.execution">执行设置</h2>
+          <label>
+            <span data-i18n="outline.delivery_profile">页面交付配置档</span>
+            <select id="delivery-profile-input" data-issue-path="delivery.profile"></select>
+          </label>
+          <label class="toggle-row">
+            <input id="parallel-input" type="checkbox" data-issue-path="execution.parallel">
+            <span data-i18n="outline.parallel">并行处理页面</span>
+          </label>
+          <label>
+            <span data-i18n="outline.max_parallel">最大并行数</span>
+            <input id="max-parallel-input" type="number" min="1" step="1" data-issue-path="execution.max_parallel">
+          </label>
+        </section>
+        <section class="execution-section">
+          <h2 data-i18n="outline.system_ui">系统 UI 门禁例外</h2>
+          <p class="field-hint" data-i18n="system_ui.hint">仅当实现确实由系统组件拥有时，忽略其内部由 iOS 控制的视觉差异。</p>
+          <label class="toggle-row">
+            <input id="system-tab-bar-controller-input" type="checkbox" data-issue-path="system_ui.tab_bar_controller">
+            <span data-i18n="system_ui.tab_bar_controller">系统 TabBarController</span>
+          </label>
+          <label class="toggle-row">
+            <input id="system-picker-input" type="checkbox" data-issue-path="system_ui.picker">
+            <span data-i18n="system_ui.picker">系统选择器</span>
+          </label>
+        </section>
+      </aside>
+
+      <main class="editor-pane">
+        <nav id="tabs" class="tabs" aria-label="页面编辑器" data-i18n-aria-label="tabs.label">
+          <button type="button" data-tab="page" aria-selected="true" data-i18n="tabs.page">页面</button>
+          <button type="button" data-tab="data" aria-selected="false" data-i18n="tabs.data">数据</button>
+          <button type="button" data-tab="behaviors" aria-selected="false" data-i18n="tabs.behaviors">页面行为</button>
+          <button type="button" data-tab="states" aria-selected="false" data-i18n="tabs.states">状态设计</button>
+          <button type="button" data-tab="status" aria-selected="false" data-i18n="tabs.status">任务状态</button>
+          <button id="flow-panel-button" class="flow-panel-button" type="button" data-i18n="canvas.title">页面流程画布</button>
+        </nav>
+        <div id="editor-content" class="editor-content"></div>
+      </main>
+
+      <section id="flow-canvas-panel" class="flow-canvas-panel" aria-label="页面流程画布" data-i18n-aria-label="canvas.title">
+        <header class="flow-canvas-toolbar">
+          <div>
+            <h2 data-i18n="canvas.title">页面流程画布</h2>
+            <span id="flow-canvas-count" class="flow-canvas-count"></span>
+          </div>
+          <div class="flow-zoom-controls" role="group" aria-label="缩放画布" data-i18n-aria-label="canvas.title">
+            <button id="flow-zoom-out" class="icon-button" type="button" data-flow-zoom="-1" title="缩小画布" aria-label="缩小画布" data-i18n-title="canvas.zoom_out" data-i18n-aria-label="canvas.zoom_out">&minus;</button>
+            <button id="flow-zoom-reset" class="zoom-reset-button" type="button" data-flow-zoom="reset" title="重置为 100%" aria-label="重置为 100%" data-i18n-title="canvas.reset_zoom" data-i18n-aria-label="canvas.reset_zoom">100%</button>
+            <button id="flow-zoom-in" class="icon-button" type="button" data-flow-zoom="1" title="放大画布" aria-label="放大画布" data-i18n-title="canvas.zoom_in" data-i18n-aria-label="canvas.zoom_in">+</button>
+            <button id="flow-fullscreen" class="icon-button flow-fullscreen-button" type="button" data-flow-fullscreen aria-pressed="false" title="全屏显示画布" aria-label="全屏显示画布" data-i18n-title="canvas.enter_fullscreen" data-i18n-aria-label="canvas.enter_fullscreen"><span class="fullscreen-enter-icon" aria-hidden="true">⤢</span><span class="fullscreen-exit-icon" aria-hidden="true">⤡</span></button>
+          </div>
+        </header>
+        <div id="flow-scroll" class="flow-scroll" tabindex="0">
+          <div id="flow-canvas" class="flow-canvas zoom-100"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <dialog id="preview-dialog" class="preview-dialog">
+    <header>
+      <h2 data-i18n="dialog.preview">YAML 预览</h2>
+      <button class="icon-button" type="button" data-close-dialog="preview-dialog" title="关闭" aria-label="关闭" data-i18n-title="dialog.close" data-i18n-aria-label="dialog.close">&times;</button>
+    </header>
+    <pre id="yaml-preview" tabindex="0"></pre>
+  </dialog>
+
+  <dialog id="status-dialog" class="status-dialog">
+    <form id="status-form" method="dialog">
+      <header>
+        <h2 id="status-dialog-title" data-i18n="dialog.update_status">更新状态</h2>
+        <button class="icon-button" type="button" data-close-dialog="status-dialog" title="关闭" aria-label="关闭" data-i18n-title="dialog.close" data-i18n-aria-label="dialog.close">&times;</button>
+      </header>
+      <input id="status-action" type="hidden">
+      <label id="status-reason-row">
+        <span data-i18n="dialog.reason">原因</span>
+        <textarea id="status-reason" rows="3"></textarea>
+      </label>
+      <label id="status-commit-row">
+        <span data-i18n="dialog.commit_optional">Commit（可选）</span>
+        <input id="status-commit" type="text">
+      </label>
+      <footer>
+        <button type="button" data-close-dialog="status-dialog" data-i18n="dialog.cancel">取消</button>
+        <button class="primary" type="submit" data-i18n="dialog.apply">应用</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="add-item-dialog" class="status-dialog">
+    <form id="add-item-form" method="dialog">
+      <header>
+        <h2 id="add-item-title" data-i18n="dialog.add_item">新增项目</h2>
+        <button class="icon-button" type="button" data-close-dialog="add-item-dialog" title="关闭" aria-label="关闭" data-i18n-title="dialog.close" data-i18n-aria-label="dialog.close">&times;</button>
+      </header>
+      <input id="add-item-kind" type="hidden">
+      <label>
+        <span data-i18n="dialog.title">标题</span>
+        <input id="add-item-name" type="text" required autocomplete="off">
+      </label>
+      <footer>
+        <button type="button" data-close-dialog="add-item-dialog" data-i18n="dialog.cancel">取消</button>
+        <button class="primary" type="submit" data-i18n="dialog.add">新增</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="amendment-dialog" class="status-dialog" aria-labelledby="amendment-dialog-title">
+    <form method="dialog">
+      <header><h2 id="amendment-dialog-title" data-i18n="amendment.title">确认增量修订</h2></header>
+      <p id="amendment-summary" class="amendment-summary"></p>
+      <footer>
+        <button type="button" data-close-dialog="amendment-dialog" data-i18n="dialog.cancel">取消</button>
+        <button id="amendment-confirm" class="primary" type="button" data-i18n="amendment.confirm">确认修订并保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="copy-behavior-dialog" class="status-dialog copy-behavior-dialog" aria-labelledby="copy-behavior-dialog-title" aria-describedby="copy-behavior-dialog-hint">
+    <form id="copy-behavior-form">
+      <header>
+        <h2 id="copy-behavior-dialog-title" data-i18n="dialog.copy_behavior">复制行为到其他页面</h2>
+        <button class="icon-button" type="button" data-close-dialog="copy-behavior-dialog" title="关闭" aria-label="关闭" data-i18n-title="dialog.close" data-i18n-aria-label="dialog.close">&times;</button>
+      </header>
+      <p id="copy-behavior-dialog-hint" class="copy-behavior-hint" data-i18n="dialog.copy_behavior_hint">选择一个或多个目标页面。行为中的状态与来源引用会按原值保留，并由目标页面校验。</p>
+      <div class="copy-behavior-selection-actions">
+        <button id="copy-behavior-select-all" type="button" data-i18n="dialog.select_all">全选</button>
+        <button id="copy-behavior-clear" type="button" data-i18n="dialog.clear_selection">清空</button>
+      </div>
+      <div id="copy-behavior-pages" class="copy-behavior-pages"></div>
+      <footer>
+        <button type="button" data-close-dialog="copy-behavior-dialog" data-i18n="dialog.cancel">取消</button>
+        <button id="copy-behavior-confirm" class="primary" type="submit" data-i18n="dialog.copy" disabled>复制</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/app.mjs"></script>
+</body>
+</html>

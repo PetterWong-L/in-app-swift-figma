@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "name": "first_page_review_is_full",
+      "situation": "A page has not been reviewed before.",
+      "expected_review_scope": "full"
+    },
+    {
+      "name": "small_amendment_uses_delta_review",
+      "situation": "An amendment changes only one finding and its directly affected layout.",
+      "expected_review_scope": "delta"
+    },
+    {
+      "name": "structural_amendment_upgrades_to_full_review",
+      "situation": "An amendment changes page mapping, state mapping, primary layout, or asset source.",
+      "expected_review_scope": "full"
+    },
+    {
+      "name": "unchanged_figma_evidence_is_reused",
+      "situation": "The Figma node, URL, design version, and relevant implementation area are unchanged.",
+      "expected_evidence_action": "reuse"
+    },
+    {
+      "name": "unexpected_duplicate_or_blank_asset_blocks_layout",
+      "situation": "Distinct design nodes export identical bytes unexpectedly, or an asset is blank.",
+      "expected_asset_action": "block_before_layout"
+    },
+    {
+      "name": "sample_state_must_not_be_hardcoded",
+      "situation": "A supplied screenshot shows selected sample data but the real state model has no default selection.",
+      "expected_handoff_action": "fix_before_first_review"
+    },
+    {
+      "name": "visible_p2_blocks_acceptance",
+      "situation": "A P2 finding is visible or functional in a supplied design state.",
+      "expected_finding_action": "block"
+    },
+    {
+      "name": "minor_p3_is_recorded",
+      "situation": "A P3 finding has no clipping, overlap, repeated geometry, or state inconsistency and pixel fidelity was not requested.",
+      "expected_finding_action": "record_residual"
+    },
+    {
+      "name": "two_no_progress_waits_trigger_recovery",
+      "situation": "A worker produces no message or file change across two consecutive waits.",
+      "expected_recovery_action": "inspect_interrupt_and_resume_focused"
+    },
+    {
+      "name": "unchanged_external_failure_is_not_retried",
+      "situation": "A Figma or build operation failed externally and its inputs and environment did not change.",
+      "expected_retry_action": "record_once_and_do_not_repeat"
+    }
+  ]
+}

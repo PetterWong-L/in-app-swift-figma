@@ -1,0 +1,59 @@
+{
+  "cases": [
+    {
+      "name": "new_page_in_existing_uikit_navigation",
+      "full_page": true,
+      "explicit_uikit_requirement": false,
+      "observable_fallback_constraint": false,
+      "expected_content": "swiftui",
+      "expected_host": "system_uihostingcontroller",
+      "expected_navigation": "uikit_system_navigation_bar"
+    },
+    {
+      "name": "multiple_figma_states_for_one_page",
+      "full_page": true,
+      "figma_states": 3,
+      "explicit_uikit_requirement": false,
+      "observable_fallback_constraint": false,
+      "expected_content": "one_state_driven_swiftui_view",
+      "expected_host": "one_system_uihostingcontroller",
+      "expected_navigation": "uikit_system_navigation_bar"
+    },
+    {
+      "name": "existing_non_hosting_base_controller_contract",
+      "full_page": true,
+      "explicit_uikit_requirement": false,
+      "observable_fallback_constraint": true,
+      "expected_content": "uikit_with_recorded_reason",
+      "expected_host": "existing_base_controller",
+      "expected_navigation": "existing_uikit_system_navigation_bar"
+    },
+    {
+      "name": "swiftui_component_without_route",
+      "full_page": false,
+      "explicit_uikit_requirement": false,
+      "observable_fallback_constraint": false,
+      "expected_content": "swiftui_view",
+      "expected_host": "existing_bridge_when_embedding_is_required",
+      "expected_navigation": "none"
+    },
+    {
+      "name": "configured_view_page_artifacts",
+      "full_page": true,
+      "title": "today",
+      "page_type": "view",
+      "expected_files": ["TodayView.swift"],
+      "expected_types": ["TodayView"],
+      "expected_host": "existing_system_uihostingcontroller_boundary"
+    },
+    {
+      "name": "configured_view_controller_page_artifacts",
+      "full_page": true,
+      "title": "today",
+      "page_type": "view_controller",
+      "expected_files": ["TodayView.swift", "TodayViewController.swift"],
+      "expected_types": ["TodayView", "TodayViewController"],
+      "expected_host": "child_system_uihostingcontroller_inside_uiviewcontroller"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "cases": [
+    {
+      "name": "human_authoring",
+      "situation": "A developer wants to create modules, pages, states, and routes interactively.",
+      "expected_interface": "local_editor"
+    },
+    {
+      "name": "nested_outline",
+      "situation": "A developer needs to switch between pages owned by several modules without losing hierarchy context.",
+      "expected_interface": "two_level_collapsible_module_page_outline",
+      "expected_behavior": "pages_render_under_their_owning_module_and_the_selected_page_module_stays_expanded"
+    },
+    {
+      "name": "automation",
+      "situation": "A script needs to validate or update lifecycle status without interaction.",
+      "expected_interface": "cli"
+    },
+    {
+      "name": "external_change",
+      "situation": "The YAML file changes after a browser snapshot was loaded.",
+      "expected_action": "409_reload_or_reconcile"
+    },
+    {
+      "name": "auto_save",
+      "situation": "A developer edits the browser draft and pauses typing.",
+      "expected_behavior": "debounced_save_without_focus_loss_or_dropped_inflight_edits"
+    },
+    {
+      "name": "flow_review",
+      "situation": "A developer wants to inspect page-to-page routes and preview every Figma state across all pages.",
+      "expected_interface": "right_side_zoomable_canvas",
+      "expected_behavior": "flow_remains_visible_beside_long_forms_with_all_figma_states_in_automatic_layered_columns_and_rows_and_two_axis_pan"
+    },
+    {
+      "name": "flow_fullscreen",
+      "situation": "A developer wants more room to inspect a large page flow without leaving the editor.",
+      "expected_interface": "viewport_filling_flow_canvas",
+      "expected_behavior": "retained_zoom_and_two_axis_scroll_with_button_or_escape_exit_and_connector_redraw"
+    },
+    {
+      "name": "branching_flow",
+      "situation": "One page has conditional transitions to several different destination pages.",
+      "expected_interface": "multiline_layered_canvas",
+      "expected_behavior": "destinations_in_separate_rows_with_distinct_source_ports_and_visible_condition_labels"
+    },
+    {
+      "name": "internal_state_flow",
+      "situation": "A developer models an alert or another conditional visual state inside one page.",
+      "expected_interface": "states_tab_and_right_side_zoomable_canvas",
+      "expected_behavior": "same_page_state_connectors_labeled_with_action_and_optional_condition"
+    },
+    {
+      "name": "inline_validation",
+      "situation": "Validation finds missing or invalid values across several pages and behaviors.",
+      "expected_interface": "inline_field_and_owner_messages_with_outline_and_tab_counts",
+      "expected_behavior": "no_schema_path_list_and_explicit_validation_expands_the_owning_card_then_focuses_the_first_issue_in_its_owning_page_and_tab"
+    },
+    {
+      "name": "compact_behavior_state_cards",
+      "situation": "A page has many behaviors or visual states and the developer needs to scan and edit them without losing context.",
+      "expected_interface": "independently_collapsible_summary_cards_with_divided_action_rows_and_responsive_state_grid",
+      "expected_behavior": "first_new_and_invalid_cards_expand_while_manual_browser_only_expansion_survives_edits_and_reordering"
+    },
+    {
+      "name": "terminal_route_destination",
+      "situation": "A back or dismiss action reveals a known existing page that is not the module entry page.",
+      "expected_interface": "optional_existing_destination_selector_and_canvas_connector",
+      "expected_behavior": "validated_known_destination_without_new_instance_or_parameters_and_distinct_outer_return_connector"
+    },
+    {
+      "name": "behavior_authoring",
+      "situation": "A developer needs to specify which page region scrolls, stays fixed, or locks for selected states.",
+      "expected_interface": "compact_behavior_summary_cards",
+      "expected_behavior": "validated_behavior_type_axis_target_regions_and_state_scope_with_auto_save"
+    },
+    {
+      "name": "custom_behavior_authoring",
+      "situation": "A page starts a countdown when it appears and changes state or navigates when that countdown finishes.",
+      "expected_interface": "structured_trigger_action_run_policy_and_reference_fields",
+      "expected_behavior": "validated_timer_source_transition_references_parameters_and_auto_save"
+    },
+    {
+      "name": "status_change",
+      "situation": "A page is claimed, completed, failed, blocked, or requeued in the editor.",
+      "expected_authority": "ruby_domain"
+    },
+    {
+      "name": "page_type_artifact_preview",
+      "situation": "A developer titles a page today and chooses whether it is a View or ViewController.",
+      "expected_interface": "page_type_selector_and_title_derived_swift_file_preview",
+      "expected_behavior": "view_shows_TodayView_swift_and_view_controller_adds_TodayViewController_swift"
+    },
+    {
+      "name": "start_codex",
+      "situation": "A user looks for a browser action that starts implementation work.",
+      "expected_action": "unsupported"
+    }
+  ]
+}

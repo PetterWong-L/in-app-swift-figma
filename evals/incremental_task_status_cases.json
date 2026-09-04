@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "name": "completed_page_with_mixed_item_changes",
+      "situation": "A completed page has a modified loading state, a removed open-details behavior, an added retry behavior, and unchanged accepted work.",
+      "expected_scope": [
+        "state:loading:modified",
+        "behavior:open-details:removed",
+        "behavior:retry:added"
+      ],
+      "expected_unchanged_policy": "preserve_done",
+      "expected_completion_gate": "all_current_and_removed_tasks_done",
+      "baseline_skill_schema": 3,
+      "baseline_result": "failed",
+      "baseline_observation": "The old skill stores only page status and acceptance metadata. It has no accepted state or behavior contracts, independent item statuses, removed-task records, or changes command, so it cannot derive exact item scope without external history.",
+      "forward_result": "passed",
+      "forward_observation": "The updated skill uses the tool-owned accepted baseline and changes command to bound Swift work to loading, open-details, and retry, preserves unchanged done tasks, and requires all current and removed tasks to be done before page completion."
+    }
+  ]
+}
